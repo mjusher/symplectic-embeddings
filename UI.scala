@@ -135,7 +135,8 @@ class SEEP extends MainFrame {
           case Some((lambda, _,_,_)) => embed(source, scale(target, lambda))
         }
         val d: (Rational, Option[IndexedSeq[Rational]]) = dilateViaExcSpheres(aspect, target, 183781800)
-        val scaledTarget = if (ell.selected) new Ellipsoid(d._1,d._1 * rationalParse(dims.text)) else new Polydisk(d._1,d._1 * rationalParse(dims.text))
+        val cest = if (echgood) ebound.get._1 else d._1
+        val scaledTarget = if (ell.selected) new Ellipsoid(cest, cest * rationalParse(dims.text)) else new Polydisk(cest,cest * rationalParse(dims.text))
         val filled = aspect.toReal / (2*scaledTarget.volume.get.toReal)
         val filltext = if (aspect == scaledTarget.volume.get * 2) "Full filling.  " else "%.8f".format(filled) + " of volume filled.  "
         val echtext = if (echgood) "Sharp by ECH capacity " + ebound.get._2 + "." else ""
