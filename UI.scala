@@ -5,11 +5,12 @@ import breeze.plot._
 import DomainTools._
 
 class SEEP extends MainFrame {
+  val epsilon = BigInt(183781800) * BigInt(183781800) 
   val err = new Label("")
   err.foreground = Color.RED
-  val dilout = new Label("Finds optimal embedding by searching for a sharp exceptional sphere obstruction")
+  val dilout = new Label("Tries to find an optimal embedding by searching for a sharp exceptional sphere obstruction")
   val fillout = new Label("or (when the box above is checked) a sharp ECH capacity bound.")
-  val capout = new Label("Otherwise, dilation factor will be accurate to within 1/180,000,000")
+  val capout = new Label("Otherwise, dilation factor will be accurate to within 1/10^16")
   val obsout = new Label("")
   title = "Symplectic embeddings of ellipsoids"
   val dims = new TextField(3)
@@ -97,7 +98,7 @@ class SEEP extends MainFrame {
      contents += fillout
      contents += capout
      contents += obsout
-       border = Swing.BeveledBorder(Swing.Lowered)
+     border = Swing.BeveledBorder(Swing.Lowered)
 
      }
     }
@@ -134,7 +135,7 @@ class SEEP extends MainFrame {
           case None => false
           case Some((lambda, _,_,_)) => embed(source, scale(target, lambda))
         }
-        val d: (Rational, Option[IndexedSeq[Rational]]) = dilateViaExcSpheres(aspect, target, 183781800)
+        val d: (Rational, Option[IndexedSeq[Rational]]) = dilateViaExcSpheres(aspect, target, epsilon)
         val cest = if (echgood) ebound.get._1 else d._1
         val scaledTarget = if (ell.selected) new Ellipsoid(cest, cest * rationalParse(dims.text)) else new Polydisk(cest,cest * rationalParse(dims.text))
         val filled = aspect.toReal / (2*scaledTarget.volume.get.toReal)
@@ -149,10 +150,12 @@ class SEEP extends MainFrame {
           sech._3 + " = " + sech._1 + "+" + sech._2 + "*" + aspect + " vs. " + tech._3 + " = " + tech._1 + "+" + tech._2 + "*" + rationalParse(dims.text) 
         } else ""
         obsout.text = if (!d._2.isDefined) "" else {
-            val out = d._2.get filter (x => x > new Rational(0,1))
-            if (ell.selected) 
-               "Exceptional sphere obstruction:  (" + out(0) + ";  " + out.tail.mkString(", ") + ")"  else {
-                "Exceptional sphere obstruction: (" + out(0) + ", " + out(1) + ";  " + out.tail.tail.mkString(", ") + ")"
+            val out = ((d._2.get map (x => x.toInt)) filter (x => x > 0)).toList.sortWith(_ > _)
+            if (ell.selected) {
+                val balls = pairs(out.tail) map ( p => p._1 + " x" + p._2) 
+               "Exceptional sphere obstruction:  (" + out(0) + ";  " + balls.mkString(", ") + ")"  } else {
+                 val balls = pairs(out.tail.tail) map ( p => p._1 + " x" + p._2) 
+                "Exceptional sphere obstruction: (" + out(0) + ", " + out(1) + ";  " + balls.mkString(", ") + ")"
             }
           }
       }
@@ -162,7 +165,20 @@ class SEEP extends MainFrame {
     val res = Dialog.showConfirmation(contents.head, "Do you want to quit?", optionType=Dialog.Options.YesNo, title=title)
     if (res == Dialog.Result.Ok) sys.exit(0)
   }
+  
+  def pairs[T](xs: List[T]): List[(T, Int)] = xs match { //utility for formatting exceptional sphere
+	  case Nil => Nil
+	  case x :: Nil => List((x, 1))
+	  case x :: y :: xs => {
+		  if (y == x) {
+			  val temp = pairs(x :: xs)
+			  (x, temp.head._2 + 1) :: temp.tail
+		  } else (x, 1) :: pairs(y :: xs)
+	  }
+  }                                                 
 }
+
+
 
 object SEEP {
   def main(args: Array[String]): Unit = {

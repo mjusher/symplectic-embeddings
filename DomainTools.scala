@@ -55,6 +55,17 @@ def rationalParse(xs: String): Rational = { //converts user input to Rational
   }
 }
 
+def rsqrt(x: Rational): Rational = { //lower bound for square root of x, with equality if x is a rational perfect square
+  def isqrt(n: BigInt): BigInt = { //floor of square root function
+    def iter(p: (BigInt, BigInt)): (BigInt, BigInt) = ((p._1 + n/p._1) >> 1,p._1)
+    def limit(p: (BigInt, BigInt)): (BigInt, BigInt) = if ((p._1 == p._2) || ((p._1 - p._2).abs ==1 && (p._1*p._1-n)*(p._2*p._2-n)<=0)) p else limit(iter(p))
+    val cands = limit((1,n))
+    if (cands._2 * cands._2 <= n) cands._2 else cands._1
+  }
+  val dcand = isqrt(x.d)
+  if (dcand * dcand == x.d) new Rational(isqrt(x.n), dcand) else new Rational(isqrt(x.n), dcand + 1)
+}
+
 def volhelp(ps: List[(Rational,Rational)]): Rational = ps match { //helper for finding volumes of polygonal domains
       case Nil => new Rational(0,1)
       case _ :: Nil => new Rational(0,1)
@@ -512,16 +523,19 @@ def nextSphere(D: ToricDomain, T: Target, E: IndexedSeq[Rational]): Option[Index
   
 def dilateViaExcSpheres(a: Rational, T: Target, N: BigInt): (Rational, Option[IndexedSeq[Rational]]) = {
   val D = new Ellipsoid(1, a)
-  val interval = optEllipseToConvexDomain(a, T, N)
-  @tailrec def dilateacc(sphere: IndexedSeq[Rational]): IndexedSeq[Rational] = nextSphere(D, T, sphere) match {
-    case None => sphere
-    case Some(s) => dilateacc(s)
-  }
-  if (interval._1 * interval._1 * (T.volume.get) < D.volume.get) (interval._2, None) else {
-    val initSphere = obstruct(D, T, interval._1, false)
-    if (!initSphere.isDefined) (interval._2, None) else {
-      val bestobs = dilateacc(initSphere.get)
-      (minscale(D, T, bestobs), Some(bestobs))
+  val volbound = rsqrt(D.volume.get / T.volume.get)
+  if (embed(D, scale(T, volbound))) (volbound, None) else {
+    val interval = optEllipseToConvexDomain(a, T, N, (volbound, volbound * 8))
+    @tailrec def dilateacc(sphere: IndexedSeq[Rational]): IndexedSeq[Rational] = nextSphere(D, T, sphere) match {
+      case None => sphere
+      case Some(s) => dilateacc(s)
+    }
+    if (interval._1 * interval._1 * (T.volume.get) < D.volume.get) (interval._2, None) else {
+      val initSphere = obstruct(D, T, interval._1, false)
+      if (!initSphere.isDefined) (interval._2, None) else {
+        val bestobs = dilateacc(initSphere.get)
+        (minscale(D, T, bestobs), Some(bestobs))
+      }
     }
   }
 }
